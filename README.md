@@ -7,7 +7,6 @@ Unlike other tools that rely on heavy external crates, `nanofetch` reads system 
 ## ✨ Features
 
 - 🚀 **Zero Dependencies**: Pure Rust standard library (`std::fs`, `std::thread`, etc.).
-- 📊 **Accurate CPU Calculation**: Computes real-time CPU usage by measuring the delta of `/proc/stat` over a 1-second interval.
 - 🧠 **Memory Insights**: Reads and parses `/proc/meminfo` directly.
 - 🐧 **Linux Native**: Tailored specifically for the Linux architecture.
 
