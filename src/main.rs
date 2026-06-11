@@ -1,5 +1,6 @@
 use std::fs;
 use std::env;
+use std::process;
 
 fn get_username() -> String {
     env::var("USER").unwrap_or_else(|_| String::from("user"))
@@ -43,6 +44,142 @@ fn get_device_model() -> String {
     }
 }
 
+fn get_kernel_info() -> String {
+    let os_release = fs::read_to_string("/proc/sys/kernel/osrelease")
+        .unwrap_or_else(|_| String::from("Unknown"))
+        .trim()
+        .to_string();
+
+
+    format!("Kernel: {}", os_release)
+}
+
+fn get_uptime() -> String {
+    let uptime_content = fs::read_to_string("/proc/uptime")
+        .unwrap_or_else(|_| String::from("0.0 0.0"));
+
+    let total_seconds: u64 = uptime_content
+        .split_whitespace()
+        .next()
+        .and_then(|s| s.parse::<f64>().ok())
+        .map(|seconds| seconds as u64)
+        .unwrap_or(0);
+
+    let days = total_seconds / 86400;
+    let hours = (total_seconds % 86400) / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+
+    if days > 0 {
+        format!("Uptime: {} days, {} hours, {} mins", days, hours, minutes)
+    } else if hours > 0 {
+        format!("Uptime: {} hours, {} mins", hours, minutes)
+    } else {
+        format!("Uptime: {} mins", minutes)
+    }
+}
+
+fn get_package_count() -> String {
+    // Cek untuk Arch Linux (Pacman)
+    if let Ok(entries) = fs::read_dir("/var/lib/pacman/local") {
+        let count = entries
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().is_dir())
+            .count();
+
+        format!("Package: {} (pacman)", count)
+
+    // Cek untuk Debian/Ubuntu (Dpkg/APT)
+    } else if let Ok(entries) = fs::read_dir("/var/lib/dpkg/info") {
+        let count = entries
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map_or(false, |ext| ext == "list"))
+            .count();
+
+        format!("Package: {} (dpkg)", count)
+        
+    } else {
+        String::from("Package: NaN")
+    }
+}
+
+fn get_meminfo() -> String {
+    let Ok(meminfo) = fs::read_to_string("/proc/meminfo") else {
+        return "Memory: unavailable".to_string();
+    };
+
+    let mut total = None;
+    let mut available = None;
+
+    for line in meminfo.lines() {
+        match () {
+            _ if line.starts_with("MemTotal:") => {
+                total = line.split_whitespace().nth(1)
+                    .and_then(|s| s.parse::<u64>().ok());
+            }
+            _ if line.starts_with("MemAvailable:") => {
+                available = line.split_whitespace().nth(1)
+                    .and_then(|s| s.parse::<u64>().ok());
+            }
+            _ => {}
+        }
+
+        if total.is_some() && available.is_some() {
+            break;
+        }
+    }
+
+    match (total, available) {
+        (Some(total), Some(avail)) => {
+            let used = total.saturating_sub(avail) / 1024;
+            format!("Memory: {}MiB / {}MiB", used, total / 1024)
+        }
+        _ => String::from("Memory: unavailable")
+    }
+}
+
+fn get_ppid(pid: u32) -> Option<u32> {
+    let stat = fs::read_to_string(format!("/proc/{}/stat", pid)).ok()?;
+
+    let fields: Vec<&str> = stat.split_whitespace().collect();
+
+    fields.get(3)?.parse().ok()
+}
+
+fn get_process_name(pid: u32) -> Option<String> {
+    let comm = fs::read_to_string(format!("/proc/{}/comm", pid)).ok()?;
+
+    Some(comm.trim().to_string())
+}
+
+fn is_shell(name: &str) -> bool {
+    matches!(
+        name,
+        "bash" | "zsh" | "fish" | "dash" | "ksh" | "tcsh" | "csh" | "nu" | "xonsh"
+    )
+}
+
+fn get_shell_name() -> String {
+    let mut pid = process::id();
+
+    while let Some(ppid) = get_ppid(pid) {
+        let Some(name) = get_process_name(ppid) else {
+            return String::from("Shell: sh");
+        };
+
+        if is_shell(&name) {
+            return format!("Shell: {}", name);
+        }
+
+        if ppid <= 1 {
+            break;
+        }
+
+        pid = ppid;
+    }
+
+    String::from("Shell: sh")
+}
+
 fn main() {
     let ascii_raw = fs::read_to_string("src/logo.txt")
         .unwrap_or_else(|_| String::from("     ???   \n   No Logo \n     ???   "));
@@ -59,10 +196,11 @@ fn main() {
         constraint,
         get_os_name(),
         get_device_model(),
-        "Kernel: 6.5.0-14-generic".to_string(),
-        "Uptime: 2h 15m".to_string(),
-        "Packages: 1234 (dpkg)".to_string(),
-        "Memory: 1024.00MiB / 4096.00MiB".to_string(),
+        get_kernel_info(),
+        get_uptime(),
+        get_package_count(),
+        get_shell_name(),
+        get_meminfo()
     ];
 
     let max_lines = std::cmp::max(ascii_art.len(), info.len());
