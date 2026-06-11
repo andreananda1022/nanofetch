@@ -6,7 +6,7 @@ Unlike other tools that rely on heavy external crates, `nanofetch` reads system 
 
 ## ✨ Features
 
-- 🚀 **Zero Dependencies**: Pure Rust standard library (`std::fs`, `std::thread`, etc.).
+- 🚀 **Zero Dependencies**: Pure Rust standard library (`std::fs`, `std::env`, `std::process`, etc.).
 - 🧠 **Memory Insights**: Reads and parses `/proc/meminfo` directly.
 - 🐧 **Linux Native**: Tailored specifically for the Linux architecture.
 
