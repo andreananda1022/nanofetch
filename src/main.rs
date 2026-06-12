@@ -180,6 +180,46 @@ fn get_shell_name() -> String {
     String::from("Shell: sh")
 }
 
+fn get_cpu_model() -> String {
+    let Ok(cpuinfo) = std::fs::read_to_string("/proc/cpuinfo") else {
+        return String::from("CPU: unknown");
+    };
+
+    cpuinfo
+        .lines()
+        .find(|line| line.starts_with("model name"))
+        .and_then(|line| line.split_once(':'))
+        .map(|(_, model)| format!("CPU: {}", model.trim()))
+        .unwrap_or_else(|| String::from("CPU: unknown"))
+}
+
+fn get_gpu_info() -> String {
+    let output = match process::Command::new("lspci").output() {
+        Ok(result) => result,
+        Err(_) => return String::from("GPU: tidak terdeteksi"),
+    };
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut gpu_info = Vec::new();
+
+    for line in stdout.lines() {
+        let line_lower = line.to_lowercase();
+        if line_lower.contains("vga compatible controller") || line_lower.contains("3d controller") {
+            let parts: Vec<&str> = line.splitn(2, ": ").collect();
+
+            if parts.len() == 2 {
+                gpu_info.push(parts[1].trim().to_string());
+            }
+        }
+    }
+
+    if gpu_info.is_empty() {
+        String::from("GPU: GPU tidak terdeteksi")
+    } else {
+        format!("GPU: {}", gpu_info.join(" | "))
+    }
+}
+
 fn main() {
     let ascii_raw = fs::read_to_string("src/logo.txt")
         .unwrap_or_else(|_| String::from("     ???   \n   No Logo \n     ???   "));
@@ -200,6 +240,8 @@ fn main() {
         get_uptime(),
         get_package_count(),
         get_shell_name(),
+        get_cpu_model(),
+        get_gpu_info(),
         get_meminfo()
     ];
 
