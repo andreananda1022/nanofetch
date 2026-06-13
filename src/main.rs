@@ -1,6 +1,7 @@
 use std::fs;
 use std::env;
 use std::process;
+use std::path::PathBuf;
 
 fn get_username() -> String {
     env::var("USER").unwrap_or_else(|_| String::from("user"))
@@ -221,9 +222,12 @@ fn get_gpu_info() -> String {
 }
 
 fn main() {
-    let ascii_raw = fs::read_to_string("src/logo.txt")
-        .unwrap_or_else(|_| String::from("     ???   \n   No Logo \n     ???   "));
-    
+    let ascii_raw = env::var("HOME")
+        .map(|home| PathBuf::from(home).join(".config/nanofetch/ascii.txt"))
+        .ok()
+        .and_then(|path| fs::read_to_string(path).ok())
+        .unwrap_or_else(|| String::from("     ???   \n   No Logo \n     ???   "));
+
     let ascii_art: Vec<&str> = ascii_raw.lines().collect();
     let ascii_blank = "           ";
 
