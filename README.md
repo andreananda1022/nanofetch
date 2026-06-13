@@ -51,7 +51,7 @@ Move the binary to /usr/local/bin/ so the system can recognize it as a global co
 sudo mv nanofetch /usr/local/bin/
 ```
 
-### Run the Application
+### 3, Run the Application
 Open a new terminal window or tab, and simply type:
 ```bash
 nanofetch
